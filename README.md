@@ -1,7 +1,7 @@
 Detector de plagio:
 - Consta de un pequeño software de plagio, una extensión y la página web del examen.
 - Examen del alumno con supervisión facil
-- Falsificación de identidad
+- Identificar la falsificación de identidad
 - Preguntas aleatorias
 - Tiempo límite de preguntas
 - Control absoluto del profesor
