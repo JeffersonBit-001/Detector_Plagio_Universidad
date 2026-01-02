@@ -222,10 +222,19 @@ async function handlePlagio(reason) {
 async function getCsrfTokenAndFetch(examen_id) {
     if (!examen_id) return;
     try {
-        const cookie = await chrome.cookies.get({ url: 'http://127.0.0.1:8000', name: 'csrftoken' });
-        if (!cookie) return;
+        // 1. CAMBIO: Buscar la cookie en el dominio real (HTTPS)
+        const cookie = await chrome.cookies.get({ 
+            url: 'https://examen.asantosb.dev', 
+            name: 'csrftoken' 
+        });
         
-        await fetch('http://127.0.0.1:8000/exam/cancel/', {
+        if (!cookie) {
+            console.error("No se encontró cookie CSRF.");
+            return;
+        }
+        
+        // 2. CAMBIO: Enviar la cancelación al servidor real
+        await fetch('https://examen.asantosb.dev/exam/cancel/', {
             method: 'POST',
             headers: { 'X-CSRFToken': cookie.value, 'Content-Type': 'application/json' },
             body: JSON.stringify({ 'examen_id': examen_id })

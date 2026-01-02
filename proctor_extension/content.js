@@ -258,7 +258,9 @@ function onStartButtonClick() {
 function handlePlagioInPage(reason) {
     if (document.fullscreenElement) document.exitFullscreen();
     document.body.innerHTML = `<div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;background:#f8d7da;color:#721c24;text-align:center;"><h1>Examen Cancelado</h1><p>Motivo: ${reason}</p></div>`;
-    setTimeout(() => window.location.href = 'http://127.0.0.1:8000/exam/dashboard/', 4000);
+    
+    // CAMBIO: Redirigir al dashboard real
+    setTimeout(() => window.location.href = 'https://examen.asantosb.dev/exam/dashboard/', 4000);
 }
 
 function checkPlagioFlag() {
