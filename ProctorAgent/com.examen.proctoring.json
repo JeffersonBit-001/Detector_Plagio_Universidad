@@ -4,6 +4,6 @@
   "path": "C:\\ProctorAgent\\run_agent.bat",
   "type": "stdio",
   "allowed_origins": [
-    "chrome-extension://dkoapjjnbnhkefaldbmmobfgibepjjja/"
+    "x"
   ]
 }

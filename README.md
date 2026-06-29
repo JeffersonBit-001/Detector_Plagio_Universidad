@@ -1,0 +1,12 @@
+Detector de plagio:
+- Consta de un pequeño software de plagio, una extensión y la página web del examen.
+- Examen del alumno con supervisión facil
+- Identificar la falsificación de identidad
+- Preguntas aleatorias
+- Tiempo límite de preguntas
+- Control absoluto del profesor
+- Contiene preguntas para marcar y escribir
+- Revisión automática por el sistema o por el mismo profesor.
+- Agregar salones, alumnos y usuarios
+- Creación de examenes por categoría
+- Escalable para más funciones
