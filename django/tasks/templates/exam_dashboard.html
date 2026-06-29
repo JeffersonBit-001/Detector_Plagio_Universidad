@@ -4,8 +4,8 @@
 <div class="container mt-5">
     <div class="row mb-4">
         <div class="col-md-8">
-            <h1 class="display-6">Mis Salones y Exámenes</h1>
-            <p class="text-muted">Bienvenido, {{ user.username }}. Aquí están tus clases asignadas.</p>
+            <h1 class="display-6">Mis Cursos y Exámenes</h1>
+            <p class="text-muted">Bienvenido, {{ user.username }}. Aquí están los exámenes de tus cursos matriculados.</p>
         </div>
     </div>
 
@@ -16,13 +16,13 @@
                 <div class="card shadow-sm h-100">
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
-                            <i class="bi bi-people-fill me-2"></i>{{ item.salon.nombre_salon }}
+                            <i class="bi bi-book-half me-2"></i>{{ item.curso.nombre_curso }}
                         </h5>
-                        <span class="badge bg-light text-primary">{{ item.salon.id_curso.nombre_curso }}</span>
+                        <span class="badge bg-light text-primary">Curso</span>
                     </div>
                     <div class="card-body">
                         <h6 class="card-subtitle mb-3 text-muted">
-                            Profesor: {{ item.salon.id_profesor.first_name }} {{ item.salon.id_profesor.last_name }}
+                            Exámenes asignados para este curso
                         </h6>
 
                         {% if item.examenes %}
@@ -50,10 +50,6 @@
                                                 <i class="bi bi-eye"></i> Ver Resultados
                                             </a>
                                         {% else %}
-
-
-
-
                                             <button class="btn btn-sm btn-outline-secondary" disabled>Espera</button>
                                         {% endif %}
                                     </div>
@@ -61,7 +57,7 @@
                             </div>
                         {% else %}
                             <div class="alert alert-info mb-0">
-                                <i class="bi bi-info-circle"></i> No hay exámenes asignados o visibles en este salón por ahora.
+                                <i class="bi bi-info-circle"></i> No hay exámenes asignados o visibles en este curso por ahora.
                             </div>
                         {% endif %}
                     </div>
@@ -72,8 +68,8 @@
     {% else %}
         <div class="text-center py-5">
             <img src="https://cdn-icons-png.flaticon.com/512/7486/7486744.png" alt="Empty" style="width: 150px; opacity: 0.5;">
-            <h3 class="mt-3 text-muted">No estás inscrito en ningún salón.</h3>
-            <p>Pide a tu profesor que te asigne a un salón de clases.</p>
+            <h3 class="mt-3 text-muted">No estás inscrito en ningún curso.</h3>
+            <p>Pide a tu profesor o administrador que te asigne a un salón de clases.</p>
         </div>
     {% endif %}
 </div>

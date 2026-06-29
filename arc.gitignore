@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Otros
+db.sqlite3
+.DS_Store
+media/

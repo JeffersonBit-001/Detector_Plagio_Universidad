@@ -10,7 +10,7 @@
     "cookies"
   ],
   "host_permissions": [
-    "https://examen.asantosb.dev/*"
+    "http://127.0.0.1:8000/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -18,8 +18,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://examen.asantosb.dev/exam/*/welcome/",
-        "https://examen.asantosb.dev/exam/*/start/"
+        "http://127.0.0.1:8000/exam/*/welcome/",
+        "http://127.0.0.1:8000/exam/*/start/"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"

@@ -1,84 +1,119 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Resultados: {{ examen.titulo }}</h2>
-        <h3 class="text-primary">Tu Nota: {{ nota|default:"0.00" }}</h3>
+
+{% if requiere_auth %}
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-5 text-center">
+                <div class="card shadow-lg border-0 p-5">
+                    <i class="bi bi-shield-lock-fill text-primary mb-3" style="font-size: 4rem;"></i>
+                    <h3 class="mb-3">Resultados Protegidos</h3>
+                    <p class="text-muted mb-4">
+                        Por motivos de privacidad, ingresa tu contraseña para ver tu calificación del examen: <br>
+                        <strong>{{ examen.titulo }}</strong>
+                    </p>
+                    
+                    <form method="POST">
+                        {% csrf_token %}
+                        <div class="mb-4">
+                            <input type="password" name="password" class="form-control form-control-lg text-center" placeholder="Tu contraseña" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-lg w-100">
+                            <i class="bi bi-unlock-fill"></i> Ver mis Resultados
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 
-    {% for item in resultados %}
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <strong>{{ forloop.counter }}. {{ item.pregunta.texto_pregunta }}</strong>
-            
-            <span class="badge {% if item.puntaje_obtenido > 0 %}bg-success{% else %}bg-secondary{% endif %}">
-                {{ item.puntaje_obtenido }} / {{ item.pregunta.puntaje_maximo }} pts
-            </span>
+{% else %}
+    <div class="container mt-4">
+        
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <a href="{% url 'exam_dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Volver al Dashboard
+            </a>
+            <button onclick="descargarComoPDF()" class="btn btn-danger shadow-sm">
+                <i class="bi bi-file-earmark-pdf-fill"></i> Descargar en PDF
+            </button>
         </div>
 
-        <div class="card-body p-0"> {% if item.pregunta.tipo_pregunta == 'M' %}
-                <ul class="list-group list-group-flush">
-                    {% for alt in item.alternativas %}
-                        
-                        {% if alt.valor == 'C' %}
-                            <li class="list-group-item list-group-item-success d-flex justify-content-between align-items-center">
-                                <div>
-                                    <i class="bi bi-check-circle-fill me-2"></i> {{ alt.texto_alternativa }}
-                                </div>
-                                <div>
-                                    {% if alt.id_alternativas_examen == item.seleccionada_id %}
-                                        <span class="badge bg-primary me-1">Tu elección</span>
-                                    {% endif %}
-                                    <span class="badge bg-success">Correcta</span>
-                                </div>
+        <div id="documento-pdf" class="card shadow-sm border-0 mb-5">
+            <div class="card-header bg-dark text-white p-4">
+                <h3 class="mb-1">{{ examen.titulo }}</h3>
+                <p class="mb-0">Alumno: {{ user.first_name }} {{ user.last_name }} ({{ user.username }})</p>
+            </div>
+            
+            <div class="card-body p-5">
+                <h2 class="text-center mb-4">
+                    Calificación Final: <span class="badge {% if nota >= 11 %}bg-success{% else %}bg-danger{% endif %}">{{ nota }} / 20</span>
+                </h2>
+                <hr class="mb-5">
+
+                {% for item in resultados %}
+                <div class="mb-5 p-3 border rounded {% if item.puntaje_obtenido > 0 %}border-success bg-light{% else %}border-danger bg-light{% endif %}">
+                    <h5>{{ forloop.counter }}. {{ item.pregunta.texto_pregunta }}</h5>
+                    <p class="text-end text-muted small"><strong>Puntos obtenidos: {{ item.puntaje_obtenido }} / {{ item.pregunta.puntaje_maximo }}</strong></p>
+
+                    {% if item.pregunta.tipo_pregunta == 'M' %}
+                        <ul class="list-group list-group-flush mt-3">
+                        {% for alt in item.alternativas %}
+                            <li class="list-group-item bg-transparent
+                                {% if item.seleccionada_id == alt.id_alternativas_examen and alt.valor == 'C' %} text-success fw-bold
+                                {% elif item.seleccionada_id == alt.id_alternativas_examen and alt.valor == 'I' %} text-danger fw-bold text-decoration-line-through
+                                {% elif alt.valor == 'C' %} text-success
+                                {% endif %}">
+                                
+                                {% if item.seleccionada_id == alt.id_alternativas_examen %}
+                                    <i class="bi bi-check2-square me-2"></i>
+                                {% else %}
+                                    <i class="bi bi-square me-2"></i>
+                                {% endif %}
+                                {{ alt.texto_alternativa }}
+                                
+                                {% if alt.valor == 'C' %} (Respuesta Correcta) {% endif %}
                             </li>
-
-                        {% elif alt.id_alternativas_examen == item.seleccionada_id %}
-                            <li class="list-group-item list-group-item-danger d-flex justify-content-between align-items-center">
-                                <div>
-                                    <i class="bi bi-x-circle-fill me-2"></i> {{ alt.texto_alternativa }}
-                                </div>
-                                <span class="badge bg-danger">Tu elección</span>
-                            </li>
-
-                        {% else %}
-                            <li class="list-group-item">
-                                <i class="bi bi-circle me-2"></i> {{ alt.texto_alternativa }}
-                            </li>
-                        {% endif %}
-
-                    {% endfor %}
-                </ul>
-
-            {% else %}
-                <div class="p-4">
-                    <h6 class="text-muted mb-2">Tu Respuesta:</h6>
-                    <div class="p-3 mb-3 bg-light border rounded text-dark">
-                        {% if item.respuesta_texto %}
-                            {{ item.respuesta_texto }}
-                        {% else %}
-                            <em class="text-muted">Sin respuesta.</em>
-                        {% endif %}
-                    </div>
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        <div class="mt-3 p-3 bg-white rounded border">
+                            <p><strong>Tu respuesta:</strong></p>
+                            <p>{{ item.respuesta_texto|default:"<em>No respondiste</em>" }}</p>
+                        </div>
+                    {% endif %}
 
                     {% if item.comentario %}
-                        <div class="alert alert-info d-flex align-items-start mb-0">
-                            <i class="bi bi-chat-left-text-fill fs-4 me-3"></i>
-                            <div>
-                                <h6 class="alert-heading fw-bold">Comentario del Profesor:</h6>
-                                <p class="mb-0">{{ item.comentario }}</p>
-                            </div>
+                        <div class="alert alert-info mt-3 mb-0">
+                            <strong><i class="bi bi-chat-right-text-fill"></i> Feedback del profesor:</strong> {{ item.comentario }}
                         </div>
                     {% endif %}
                 </div>
-            {% endif %}
+                {% endfor %}
+            </div>
         </div>
     </div>
-    {% endfor %}
 
-    <div class="text-center mb-5">
-        <a href="{% url 'exam_dashboard' %}" class="btn btn-primary btn-lg">Volver al Panel</a>
-    </div>
-</div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+        function descargarComoPDF() {
+            // Selecciona la caja que tiene el ID "documento-pdf"
+            const elemento = document.getElementById('documento-pdf');
+            
+            // Configuración del PDF
+            const opciones = {
+                margin:       10,
+                filename:     'Resultados_Examen_{{ examen.id_examen }}.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // Genera el archivo y lo descarga
+            html2pdf().set(opciones).from(elemento).save();
+        }
+    </script>
+{% endif %}
+
 {% endblock %}

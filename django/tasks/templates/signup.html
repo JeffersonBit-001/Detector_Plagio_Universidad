@@ -1,11 +1,129 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProctorAgent - Registro</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'css/login_styles.css' %}">
+    
+    <style>
+        /* Ajustes específicos para domar el formulario de Django */
+        .field-label {
+            display: block;
+            text-align: left;
+            font-size: 0.9rem;
+            color: #fff;
+            margin-bottom: 5px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
 
-<div class="container">
-  <h1>Signup</h1>
+        .django-help-text {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.9);
+            text-align: left;
+            margin-top: -15px;
+            margin-bottom: 20px;
+            line-height: 1.4;
+            /* Fondo semitransparente para que las reglas de la contraseña se lean bien */
+            background: rgba(0, 0, 0, 0.25);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
 
-  {{error}}
+        .django-help-text ul {
+            padding-left: 20px;
+            margin-top: 5px;
+            margin-bottom: 0;
+        }
 
-  <form action="/signup/" method="POST">
-    {% csrf_token %} {{form.as_p}}
-    <button class="btn btn-primary">Signup</button>
-  </form>
-</div>
+        .django-help-text li {
+            margin-bottom: 3px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-card" style="max-width: 450px;">
+        
+        <div class="profile-icon">
+            <i class="fas fa-user-plus"></i>
+        </div>
+        
+        <h2>Registro</h2>
+
+        {% if error %}
+        <div class="error-message">
+            <i class="fas fa-exclamation-circle"></i>
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form action="/signup/" method="POST">
+            {% csrf_token %} 
+            
+            {% for field in form %}
+                <label class="field-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                
+                <div class="input-group">
+                    <span class="icon input-icon" data-field="{{ field.name }}">
+                        <i class="fas fa-pen"></i> </span>
+                    
+                    {{ field }}
+                </div>
+                
+                {% if field.help_text %}
+                    <div class="django-help-text">
+                        {{ field.help_text|safe }}
+                    </div>
+                {% endif %}
+
+                {% if field.errors %}
+                    <div style="color: #ffcccc; font-size: 0.8rem; text-align: left; margin-top: -10px; margin-bottom: 15px; padding-left: 5px;">
+                        <i class="fas fa-times-circle"></i> {{ field.errors|striptags }}
+                    </div>
+                {% endif %}
+            {% endfor %}
+
+            <button type="submit" class="login-btn" style="margin-top: 10px;">Crear Cuenta</button>
+        </form>
+
+        <div class="footer-links">
+            <p>¿Ya tienes una cuenta? <a href="/signin/" style="font-weight: 600;">Inicia sesión aquí</a></p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputs = document.querySelectorAll('.input-group input');
+            
+            inputs.forEach(input => {
+                // Forzamos la transparencia sobre los inputs de Django
+                input.style.background = 'transparent';
+                input.style.color = '#fff';
+                
+                let fieldName = input.getAttribute('name');
+                let iconSpan = input.previousElementSibling;
+                
+                // Lógica para asignar íconos y placeholders dinámicos
+                if (iconSpan && iconSpan.classList.contains('input-icon')) {
+                    if (input.type === 'password' || fieldName.includes('password')) {
+                        iconSpan.innerHTML = '<i class="fas fa-lock"></i>';
+                        input.setAttribute('placeholder', '••••••••');
+                    } else if (fieldName === 'username') {
+                        iconSpan.innerHTML = '<i class="fas fa-user"></i>';
+                        input.setAttribute('placeholder', 'Ingresa tu usuario');
+                    } else {
+                        iconSpan.innerHTML = '<i class="fas fa-keyboard"></i>';
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

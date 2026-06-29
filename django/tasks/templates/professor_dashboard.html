@@ -4,19 +4,20 @@
     <h1>Panel del Profesor</h1>
     <p>Bienvenido, {{ request.user.username }}.</p>
     
-    <a href="{% url 'professor_create_course' %}" class="btn btn-primary mb-3">Crear Nuevo Curso</a>
-
-    <h2 class="mt-4">Mis Cursos</h2>
+    <h2 class="mt-4">Mis Salones Asignados</h2>
     <div class="list-group">
-        {% for curso in lista_cursos %}
+        {% for salon in salones %}
             <div class="list-group-item">
-                <h5 class="mb-1">{{ curso.nombre_curso }}</h5>
-                <a href="{% url 'professor_manage_course' curso.id_cursos %}" class="btn btn-sm btn-outline-primary">
+                <h5 class="mb-1">{{ salon.nombre_salon }}</h5>
+                
+                <a href="{% url 'professor_manage_course' salon.id_curso.id_cursos %}" class="btn btn-sm btn-outline-primary">
                     Ver Exámenes de este Curso
                 </a>
             </div>
         {% empty %}
-            <p>No has creado ningún curso.</p>
+            <div class="alert alert-info mt-3">
+                No tienes salones asignados en este momento. Contacta a la administración.
+            </div>
         {% endfor %}
     </div>
 </div>

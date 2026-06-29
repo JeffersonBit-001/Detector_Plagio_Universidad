@@ -63,7 +63,7 @@ def signup(request):
                     request.POST["username"], password=request.POST["password1"])
                 user.save()
                 login(request, user)
-                return redirect('tasks')
+                return redirect('exam_dashboard')
             except IntegrityError:
                 return render(request, 'signup.html', {
                     "form": UserCreationForm, "error": 
@@ -186,46 +186,54 @@ def check_exam_status(user, examen_id):
 @login_required
 def exam_dashboard(request):
     """
-    Dashboard del alumno organizado por SALONES.
+    Dashboard del alumno organizado por CURSOS.
+    Evita duplicados si el alumno está en varios salones del mismo curso.
     """
     # 1. Obtener los salones donde el usuario está inscrito
-    #    Usamos 'salones_inscritos' que definimos en el related_name del modelo Salon
-    mis_salones = request.user.salones_inscritos.select_related('id_curso', 'id_profesor').all()
+    mis_salones = request.user.salones_inscritos.select_related('id_curso').all()
 
-    # 2. Obtener todos los 'EstadoExamen' (asignaciones) visibles de este usuario
-    #    Esto contiene la info de si ya lo dio, su nota, etc.
+    # 2. Extraer los CURSOS ÚNICOS de esos salones
+    # Usamos un diccionario {id_curso: objeto_curso} para evitar duplicados
+    cursos_dict = {}
+    for salon in mis_salones:
+        if salon.id_curso.id_cursos not in cursos_dict:
+            cursos_dict[salon.id_curso.id_cursos] = salon.id_curso
+
+    # 3. Obtener las asignaciones visibles de este usuario para estos cursos
+    cursos_ids = list(cursos_dict.keys())
     asignaciones = EstadoExamen.objects.filter(
         user=request.user,
-        id_examen__is_visible=True
+        id_examen__is_visible=True,
+        id_examen__id_curso_id__in=cursos_ids
     ).select_related('id_examen')
 
-    # 3. Organizar los datos: [ { 'salon': salon, 'examenes': [lista_datos] }, ... ]
+    # 4. Organizar los datos agrupándolos por CURSO
+    # Formato: [ { 'curso': curso_obj, 'examenes': [lista_datos] }, ... ]
     dashboard_data = []
 
-    for salon in mis_salones:
-        examenes_del_salon = []
+    for curso_id, curso_obj in cursos_dict.items():
+        examenes_del_curso = []
         
-        # Filtramos las asignaciones que pertenecen al CURSO de este salón
+        # Filtramos las asignaciones que pertenecen a este curso
         for asignacion in asignaciones:
-            if asignacion.id_examen.id_curso_id == salon.id_curso_id:
-                examenes_del_salon.append({
+            if asignacion.id_examen.id_curso_id == curso_id:
+                examenes_del_curso.append({
                     'examen': asignacion.id_examen,
                     'estado': asignacion.estado,
                     'nota': asignacion.nota
                 })
         
-        # Añadimos el salón a la lista, incluso si no tiene exámenes activos aún
+        # Añadimos el curso al dashboard
         dashboard_data.append({
-            'salon': salon,
-            'examenes': examenes_del_salon
+            'curso': curso_obj,
+            'examenes': examenes_del_curso
         })
 
     context = {
         'dashboard_data': dashboard_data
     }
     return render(request, 'exam_dashboard.html', context)
-
-
+#----------------------------------------------------+
 
 # --- ¡VISTA MODIFICADA! ---
 @never_cache 
@@ -533,67 +541,21 @@ def professor_required(function=None, redirect_field_name=None, login_url='signi
 
 @login_required
 @professor_required
+#def professor_dashboard(request):
+#    """
+#    Panel principal del profesor. Muestra los cursos que le pertenecen.
+#    """
+#    cursos = Cursos.objects.filter(id_profesor=request.user)
+#    context = {
+#        'lista_cursos': cursos
+#    }
+#    return render(request, 'profesor/professor_dashboard.html', context)
+
+
 def professor_dashboard(request):
-    """
-    Panel principal del profesor. Muestra los cursos que le pertenecen.
-    """
-    cursos = Cursos.objects.filter(id_profesor=request.user)
-    context = {
-        'lista_cursos': cursos
-    }
-    return render(request, 'profesor/professor_dashboard.html', context)
-
-@login_required
-@professor_required
-def professor_create_course(request):
-    """
-    Vista para crear un nuevo curso (Formulario).
-    """
-    if request.method == 'POST':
-        form = CursoForm(request.POST)
-        if form.is_valid():
-            curso = form.save(commit=False)
-            curso.id_profesor = request.user  # Asigna al profesor actual
-            curso.save()
-            messages.success(request, 'Curso creado exitosamente.')
-            return redirect('professor_dashboard')
-    else:
-        form = CursoForm()
-    
-    return render(request, 'profesor/professor_course_form.html', {'form': form, 'titulo': 'Crear Nuevo Curso'})
-
-
-@login_required
-@professor_required
-def professor_edit_course(request, curso_id):
-    """
-    Vista para editar un curso existente (Formulario).
-    """
-    curso = get_object_or_404(Cursos, id_cursos=curso_id, id_profesor=request.user)
-    if request.method == 'POST':
-        form = CursoForm(request.POST, instance=curso)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Curso actualizado exitosamente.')
-            return redirect('professor_dashboard')
-    else:
-        form = CursoForm(instance=curso)
-    
-    return render(request, 'profesor/professor_course_form.html', {'form': form, 'titulo': f'Editar: {curso.nombre_curso}'})
-
-@login_required
-@professor_required
-def professor_delete_course(request, curso_id):
-    """
-    Vista para eliminar un curso (Confirmación).
-    """
-    curso = get_object_or_404(Cursos, id_cursos=curso_id, id_profesor=request.user)
-    if request.method == 'POST':
-        curso.delete()
-        messages.success(request, 'Curso eliminado exitosamente.')
-        return redirect('professor_dashboard')
-    
-    return render(request, 'profesor/confirm_delete.html', {'objeto': curso})
+    # Solo traer los salones donde el profesor asignado sea el usuario actual
+    mis_salones = Salon.objects.filter(id_profesor=request.user)
+    return render(request, 'professor_dashboard.html', {'salones': mis_salones})
 
 @login_required
 @professor_required
@@ -601,14 +563,17 @@ def professor_manage_course(request, curso_id):
     """
     Panel para gestionar un curso. Muestra los exámenes de ESE curso.
     """
-    curso = get_object_or_404(Cursos, id_cursos=curso_id, id_profesor=request.user)
-    examenes = Examen.objects.filter(id_curso=curso)
+    # QUITAMOS la búsqueda de profesor en el curso (el curso es universal)
+    curso = get_object_or_404(Cursos, id_cursos=curso_id) 
+    
+    # AGREGAMOS la búsqueda de profesor directamente en el Examen
+    examenes = Examen.objects.filter(id_curso=curso, id_profesor=request.user)
+    
     context = {
         'curso': curso,
         'lista_examenes': examenes
     }
     return render(request, 'profesor/professor_manage_course.html', context)
-
 
 # --- CRUD EXÁMENES ---
 
@@ -618,12 +583,18 @@ def professor_create_exam(request, curso_id):
     """
     Vista para crear un nuevo examen DENTRO de un curso.
     """
-    curso = get_object_or_404(Cursos, id_cursos=curso_id, id_profesor=request.user)
+    # QUITAMOS la validación del profesor aquí
+    curso = get_object_or_404(Cursos, id_cursos=curso_id) 
     if request.method == 'POST':
         form = ExamenForm(request.POST)
         if form.is_valid():
             examen = form.save(commit=False)
-            examen.id_curso = curso # Asigna el curso
+            examen.id_curso = curso 
+            
+            # --- ¡LA MAGIA OCURRE AQUÍ! ---
+            # Guardamos al profesor actual como el AUTOR del examen
+            examen.id_profesor = request.user 
+            
             examen.save()
             messages.success(request, 'Examen creado exitosamente.')
             return redirect('professor_manage_course', curso_id=curso.id_cursos)
@@ -632,13 +603,15 @@ def professor_create_exam(request, curso_id):
     
     return render(request, 'profesor/professor_exam_form.html', {'form': form, 'titulo': f'Crear Examen para {curso.nombre_curso}'})
 
+
+
 @login_required
 @professor_required
 def professor_edit_exam(request, examen_id):
     """
     Vista para editar el título de un examen.
     """
-    examen = get_object_or_404(Examen, id_examen=examen_id, id_curso__id_profesor=request.user)
+    examen = get_object_or_404(Examen, id_examen=examen_id, id_profesor=request.user)
     if request.method == 'POST':
         form = ExamenForm(request.POST, instance=examen)
         if form.is_valid():
@@ -656,7 +629,7 @@ def professor_delete_exam(request, examen_id):
     """
     Vista para eliminar un examen (Confirmación).
     """
-    examen = get_object_or_404(Examen, id_examen=examen_id, id_curso__id_profesor=request.user)
+    examen = get_object_or_404(Examen, id_examen=examen_id, id_profesor=request.user)
     curso_id = examen.id_curso.id_cursos # Guardamos el ID antes de borrar
     if request.method == 'POST':
         examen.delete()
@@ -679,7 +652,7 @@ def professor_assign_students(request, examen_id):
     Vista MEJORADA para asignar/desasignar Y gestionar el estado por alumno.
     Incluye lógica para mostrar NOTAS.
     """
-    examen = get_object_or_404(Examen, id_examen=examen_id, id_curso__id_profesor=request.user)
+    examen = get_object_or_404(Examen, id_examen=examen_id, id_profesor=request.user)
     all_students = User.objects.filter(is_staff=False, is_superuser=False).order_by('username')
     
     # Obtenemos las asignaciones existentes
@@ -766,7 +739,7 @@ def professor_review_exam(request, examen_id, alumno_id):
     CORREGIDO: Maneja preguntas abiertas y evita el error de atributo.
     """
     # 1. Seguridad y Datos Básicos
-    examen = get_object_or_404(Examen, id_examen=examen_id, id_curso__id_profesor=request.user)
+    examen = get_object_or_404(Examen, id_examen=examen_id, id_profesor=request.user)
     alumno = get_object_or_404(User, id=alumno_id)
     estado_examen = get_object_or_404(EstadoExamen, user=alumno, id_examen=examen)
 
@@ -844,7 +817,7 @@ def professor_set_exam_status(request, examen_id, status):
     los alumnos que ya lo tienen asignado.
     """
     # Verificamos que el profesor sea dueño del examen
-    examen = get_object_or_404(Examen, id_examen=examen_id, id_curso__id_profesor=request.user)
+    examen = get_object_or_404(Examen, id_examen=examen_id, id_profesor=request.user)
     
     # Solo permitimos cambiar a 'A' o 'D'
     if status not in ['A', 'D']:
@@ -873,7 +846,7 @@ def professor_manage_questions(request, examen_id):
     """
     Muestra la lista de preguntas de un examen.
     """
-    examen = get_object_or_404(Examen, id_examen=examen_id, id_curso__id_profesor=request.user)
+    examen = get_object_or_404(Examen, id_examen=examen_id, id_profesor=request.user)
     preguntas = PreguntasExamen.objects.filter(id_examen=examen)
     context = {
         'examen': examen,
@@ -887,7 +860,7 @@ def professor_create_question(request, examen_id):
     """
     Crea una nueva pregunta para un examen.
     """
-    examen = get_object_or_404(Examen, id_examen=examen_id, id_curso__id_profesor=request.user)
+    examen = get_object_or_404(Examen, id_examen=examen_id, id_profesor=request.user)
     if request.method == 'POST':
         form = PreguntaForm(request.POST)
         if form.is_valid():
@@ -907,7 +880,7 @@ def professor_edit_question(request, pregunta_id):
     """
     Edita el texto de una pregunta.
     """
-    pregunta = get_object_or_404(PreguntasExamen, id_preguntas_examen=pregunta_id, id_examen__id_curso__id_profesor=request.user)
+    pregunta = get_object_or_404(PreguntasExamen, id_preguntas_examen=pregunta_id, id_examen__id_profesor=request.user)
     if request.method == 'POST':
         form = PreguntaForm(request.POST, instance=pregunta)
         if form.is_valid():
@@ -925,7 +898,7 @@ def professor_delete_question(request, pregunta_id):
     """
     Elimina una pregunta (Confirmación).
     """
-    pregunta = get_object_or_404(PreguntasExamen, id_preguntas_examen=pregunta_id, id_examen__id_curso__id_profesor=request.user)
+    pregunta = get_object_or_404(PreguntasExamen, id_preguntas_examen=pregunta_id, id_examen__id_profesor=request.user)
     examen_id = pregunta.id_examen.id_examen
     if request.method == 'POST':
         pregunta.delete()
@@ -943,7 +916,7 @@ def professor_manage_alternatives(request, pregunta_id):
     """
     Muestra la lista de alternativas de una pregunta.
     """
-    pregunta = get_object_or_404(PreguntasExamen, id_preguntas_examen=pregunta_id, id_examen__id_curso__id_profesor=request.user)
+    pregunta = get_object_or_404(PreguntasExamen, id_preguntas_examen=pregunta_id, id_examen__id_profesor=request.user)
     alternativas = AlternativasExamen.objects.filter(id_preguntas_examen=pregunta)
     context = {
         'pregunta': pregunta,
@@ -957,7 +930,7 @@ def professor_create_alternative(request, pregunta_id):
     """
     Crea una nueva alternativa para una pregunta.
     """
-    pregunta = get_object_or_404(PreguntasExamen, id_preguntas_examen=pregunta_id, id_examen__id_curso__id_profesor=request.user)
+    pregunta = get_object_or_404(PreguntasExamen, id_preguntas_examen=pregunta_id, id_examen__id_profesor=request.user)
     if request.method == 'POST':
         form = AlternativaForm(request.POST)
         if form.is_valid():
@@ -985,7 +958,7 @@ def professor_edit_alternative(request, alternativa_id):
     alternativa = get_object_or_404(
         AlternativasExamen, 
         id_alternativas_examen=alternativa_id, 
-        id_preguntas_examen__id_examen__id_curso__id_profesor=request.user
+        id_preguntas_examen__id_examen__id_profesor=request.user
     )
 
     if request.method == 'POST':
@@ -1028,7 +1001,7 @@ def professor_delete_alternative(request, alternativa_id):
     """
     Elimina una alternativa (Confirmación).
     """
-    alternativa = get_object_or_404(AlternativasExamen, id_alternativas_examen=alternativa_id, id_preguntas_examen__id_examen__id_curso__id_profesor=request.user)
+    alternativa = get_object_or_404(AlternativasExamen, id_alternativas_examen=alternativa_id, id_preguntas_examen__id_examen__id_profesor=request.user)
     pregunta_id = alternativa.id_preguntas_examen.id_preguntas_examen
     if request.method == 'POST':
         alternativa.delete()
@@ -1046,7 +1019,7 @@ def professor_toggle_exam_visibility(request, examen_id):
     """
     Vista para cambiar el estado 'is_visible' de un Examen.
     """
-    examen = get_object_or_404(Examen, id_examen=examen_id, id_curso__id_profesor=request.user)
+    examen = get_object_or_404(Examen, id_examen=examen_id, id_profesor=request.user)
     
     # Cambia el valor booleano
     examen.is_visible = not examen.is_visible
@@ -1075,7 +1048,7 @@ def professor_manage_exam_salons(request, examen_id):
     Muestra la lista de salones asociados al CURSO de este examen.
     El profesor elige un salón para gestionar sus asignaciones.
     """
-    examen = get_object_or_404(Examen, id_examen=examen_id, id_curso__id_profesor=request.user)
+    examen = get_object_or_404(Examen, id_examen=examen_id, id_profesor=request.user)
     
     # Obtenemos los salones que pertenecen al MISMO CURSO del examen
     # y que son gestionados por este profesor (seguridad extra)
@@ -1098,7 +1071,7 @@ def professor_assign_students_to_exam_in_salon(request, examen_id, salon_id):
     Gestiona la asignación para un SALÓN específico.
     AHORA INCLUYE NOTAS Y BOTÓN DE REVISIÓN.
     """
-    examen = get_object_or_404(Examen, id_examen=examen_id, id_curso__id_profesor=request.user)
+    examen = get_object_or_404(Examen, id_examen=examen_id, id_profesor=request.user)
     salon = get_object_or_404(Salon, id_salon=salon_id, id_curso=examen.id_curso)
     
     # 1. Alumnos del salón
@@ -1177,11 +1150,39 @@ def professor_assign_students_to_exam_in_salon(request, examen_id, salon_id):
 def ver_resultados_examen(request, examen_id):
     examen = get_object_or_404(Examen, id_examen=examen_id)
     
-    # Validar estado
+    # Validar que el examen ya esté finalizado
     estado = get_object_or_404(EstadoExamen, user=request.user, id_examen=examen)
     if estado.estado != 'F':
         return redirect('exam_dashboard')
 
+    # =========================================================
+    # --- 1. LÓGICA DE SEGURIDAD: PEDIR CONTRASEÑA DEL ALUMNO ---
+    # =========================================================
+    session_key = f'resultados_desbloqueados_{examen_id}_{request.user.id}'
+    
+    # Si envía el formulario con la contraseña...
+    if request.method == 'POST':
+        password_ingresada = request.POST.get('password', '')
+        
+        # Comparamos con su contraseña real de la base de datos
+        if request.user.check_password(password_ingresada):
+            request.session[session_key] = True # ¡Desbloqueado!
+            return redirect('ver_resultados_examen', examen_id=examen.id_examen)
+        else:
+            messages.error(request, 'Contraseña incorrecta. Por favor, intenta de nuevo.')
+
+    # Si aún no ha desbloqueado los resultados, le mostramos la pantalla de candado
+    if not request.session.get(session_key):
+        return render(request, 'ver_resultados.html', {
+            'examen': examen,
+            'requiere_auth': True # Esta variable activa el candado en el HTML
+        })
+    # =========================================================
+
+
+    # =========================================================
+    # --- 2. LÓGICA NORMAL: CARGAR LOS RESULTADOS ---
+    # =========================================================
     ids_respondidos = RespuestasUsuario.objects.filter(
         user=request.user, id_examen=examen
     ).values_list('id_preguntas_examen', flat=True)
@@ -1193,7 +1194,6 @@ def ver_resultados_examen(request, examen_id):
         alternativas = AlternativasExamen.objects.filter(id_preguntas_examen=pregunta)
         respuesta_usuario = RespuestasUsuario.objects.filter(user=request.user, id_preguntas_examen=pregunta).first()
         
-        # --- DATOS EXTENDIDOS ---
         seleccionada_id = None
         respuesta_texto = None
         puntaje_obtenido = 0
@@ -1206,15 +1206,14 @@ def ver_resultados_examen(request, examen_id):
             respuesta_texto = respuesta_usuario.respuesta_texto
             puntaje_obtenido = respuesta_usuario.puntaje_obtenido
             comentario = respuesta_usuario.comentario_profesor
-        # ------------------------
 
         resultados.append({
             'pregunta': pregunta,
             'alternativas': alternativas,
             'seleccionada_id': seleccionada_id,
-            'respuesta_texto': respuesta_texto,     # <--- Nuevo
-            'puntaje_obtenido': puntaje_obtenido,   # <--- Nuevo
-            'comentario': comentario                # <--- Nuevo
+            'respuesta_texto': respuesta_texto,
+            'puntaje_obtenido': puntaje_obtenido,
+            'comentario': comentario 
         })
 
     context = {
@@ -1223,10 +1222,6 @@ def ver_resultados_examen(request, examen_id):
         'nota': estado.nota
     }
     return render(request, 'ver_resultados.html', context)
-
-
-
-
 
 
 # --- CRUD SALONES ---

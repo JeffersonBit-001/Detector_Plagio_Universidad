@@ -1,16 +1,19 @@
 from django.db import models
 from django.contrib.auth.models import User
+import uuid
+
+
 
 class Cursos(models.Model):
     id_cursos = models.AutoField(primary_key=True)
     nombre_curso = models.CharField(max_length=255)
-    id_profesor = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        db_column='id_profesor',
-        blank=True,
-        null=True
-    )
+    #id_profesor = models.ForeignKey(
+    #    User,
+    #    on_delete=models.SET_NULL,
+    #    db_column='id_profesor',
+    #    blank=True,
+    #    null=True
+    #)
 
     class Meta:
         db_table = 'cursos'
@@ -20,13 +23,42 @@ class Cursos(models.Model):
         return self.nombre_curso
 
 
+class Aula(models.Model):
+    id_aula = models.AutoField(primary_key=True)
+    nombre_aula = models.CharField(
+        max_length=100, 
+        unique=True, 
+        help_text="Ej: Pabellón A - 101, Laboratorio 3"
+    )
+
+    class Meta:
+        db_table = 'aula'
+
+    def __str__(self):
+        return self.nombre_aula
+
 
 class Examen(models.Model):
     id_examen = models.AutoField(primary_key=True)
     id_curso = models.ForeignKey('Cursos', on_delete=models.DO_NOTHING, db_column='id_curso')
+    
+    # --- ¡NUEVO CAMPO REQUERIDO! ---
+    id_profesor = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        limit_choices_to={'is_staff': True},
+        help_text="Profesor autor de este examen",
+        null=True,  # ESTO ES LO QUE EVITA EL ERROR
+        blank=True  # ESTO TAMBIÉN
+    )
+    # ------------------------------
+
     titulo = models.CharField(max_length=255)
     is_visible = models.BooleanField(default=True)
     cantidad_preguntas = models.IntegerField(default=0, help_text="0 para todas")
+
+
+
 
     # --- NUEVA ESTRUCTURA DE TIEMPO (3 CASOS) ---
     OPCIONES_TIEMPO = [
@@ -212,39 +244,58 @@ class RespuestasUsuario(models.Model):
 
 class Salon(models.Model):
     id_salon = models.AutoField(primary_key=True)
-    nombre_salon = models.CharField(max_length=100)
     
-    # Cada salón pertenece a un profesor
+    # Esto ya no es el espacio físico, es el nombre del grupo (Ej: "Grupo A", "Turno Noche")
+    nombre_salon = models.CharField(max_length=100, help_text="Nombre de la sección o grupo") 
+    
+    # --- ¡NUEVA LLAVE FORÁNEA AL ESPACIO FÍSICO! ---
+    aula_fisica = models.ForeignKey(
+        Aula, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        help_text="Aula física donde se dicta la clase"
+    )
+    # -----------------------------------------------
+    
     id_profesor = models.ForeignKey(
         User,
-        on_delete=models.CASCADE, # Si el profesor se elimina, sus salones también
+        on_delete=models.CASCADE,
         db_column='id_profesor',
-        related_name='salones_gestionados' # Para acceder desde User.salones_gestionados
+        limit_choices_to={'is_staff': True}, # Asegura que solo salgan profesores
+        related_name='salones_gestionados'
     )
     
-    # Cada salón pertenece a un curso
     id_curso = models.ForeignKey(
         Cursos,
-        on_delete=models.CASCADE, # Si el curso se elimina, sus salones también
+        on_delete=models.CASCADE,
         db_column='id_curso',
-        related_name='salones_asociados' # Para acceder desde Cursos.salones_asociados
+        related_name='salones_asociados'
     )
     
-    # Relación Many-to-Many con User (para los alumnos en el salón)
-    # Esto creará una tabla intermedia automáticamente
     alumnos = models.ManyToManyField(
         User,
-        related_name='salones_inscritos', # Para acceder desde User.salones_inscritos
-        through='SalonAlumnos' # Usaremos un modelo intermedio explícito para más control
+        related_name='salones_inscritos',
+        through='SalonAlumnos'
     )
 
     class Meta:
-        db_table = 'salon' # Nombre de la tabla en la BD
-        # Si tienes managed=False, asegúrate de que exista la tabla 'salon' en tu BD
-        # y que el resto de campos coincida.
+        db_table = 'salon'
 
     def __str__(self):
-        return f"{self.nombre_salon} ({self.id_curso.nombre_curso} - Prof. {self.id_profesor.username})"
+        # Ahora el texto te dirá exactamente qué es cada cosa
+        aula_str = self.aula_fisica.nombre_aula if self.aula_fisica else "Sin Aula"
+        return f"{self.id_curso.nombre_curso} - {self.nombre_salon} ({aula_str}) - Prof. {self.id_profesor.username}"
+    
+    # 2. SOBRESCRIBIMOS EL MÉTODO SAVE PARA AUTOGENERAR EL CÓDIGO
+    def save(self, *args, **kwargs):
+        # Si el salón es nuevo y no tiene nombre, le inventamos un código
+        if not self.nombre_salon:
+            # Genera un código tipo: "SEC-9F2A1B"
+            codigo_unico = uuid.uuid4().hex[:6].upper()
+            self.nombre_salon = f"SEC-{codigo_unico}"
+            
+        super(Salon, self).save(*args, **kwargs)
 
 # Modelo intermedio para la relación Many-to-Many entre Salon y User (alumnos)
 class SalonAlumnos(models.Model):
@@ -298,3 +349,55 @@ class IncidenciaExamen(models.Model):
 
     class Meta:
         db_table = 'incidencias_examen'
+
+
+
+
+# Asegúrate de agregar estas importaciones en la parte MÁS ALTA de tu models.py
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+
+# ... (Aquí están todas tus clases de modelos actuales) ...
+
+
+# =========================================================
+# --- SEÑALES (GATILLOS AUTOMÁTICOS) ---
+# =========================================================
+
+@receiver(post_save, sender=User)
+def asignar_examen_de_prueba(sender, instance, created, **kwargs):
+    """
+    Se ejecuta automáticamente al crear un usuario.
+    Busca estrictamente el curso de 'Inducción' para evitar confusiones.
+    """
+    if created and not instance.is_staff and not instance.is_superuser:
+        try:
+            # 1. Buscamos específicamente el curso que contenga la palabra "Inducción"
+            curso_induccion = Cursos.objects.filter(nombre_curso__icontains="Inducción").first()
+            
+            if curso_induccion:
+                # 2. Buscamos el salón que pertenece a ESE curso
+                salon_induccion = Salon.objects.filter(id_curso=curso_induccion).first()
+                
+                # 3. Buscamos el examen que pertenece a ESE curso
+                examen_prueba = Examen.objects.filter(id_curso=curso_induccion).first()
+                
+                # Si encontramos el salón y el examen, hacemos la matrícula
+                if salon_induccion and examen_prueba:
+                    
+                    # Darle acceso al examen (Estado 'A')
+                    EstadoExamen.objects.get_or_create(
+                        user=instance, 
+                        id_examen=examen_prueba, 
+                        defaults={'estado': 'A'}
+                    )
+                    
+                    # Matricularlo en el salón correcto
+                    from .models import SalonAlumnos
+                    SalonAlumnos.objects.get_or_create(
+                        id_salon=salon_induccion, 
+                        id_alumno=instance
+                    )
+        except Exception as e:
+            print(f"Error asignando examen de prueba al usuario {instance.username}: {e}")

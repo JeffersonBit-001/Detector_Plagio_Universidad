@@ -156,11 +156,15 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True
 
+#ALLOWED_HOSTS = ['*']
+
 # --- ¡ESTA ES LA LÍNEA QUE FALTABA! ---
 # Esto le dice al CsrfViewMiddleware de Django que confíe en la extensión
-CSRF_TRUSTED_ORIGINS = [
-    "chrome-extension://dkoapjjnbnhkefaldbmmobfgibepjjja"
-]
+#CSRF_TRUSTED_ORIGINS = [
+#    "chrome-extension://dkoapjjnbnhkefaldbmmobfgibepjjja"
+#    'https://*.devtunnels.ms',
+#    'https://*.github.dev',
+#]
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

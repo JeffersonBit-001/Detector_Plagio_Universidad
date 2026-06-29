@@ -27,9 +27,9 @@ urlpatterns = [
     path('profesor/dashboard/', views.professor_dashboard, name='professor_dashboard'),
     
     # CRUD de Cursos
-    path('profesor/curso/crear/', views.professor_create_course, name='professor_create_course'),
-    path('profesor/curso/<int:curso_id>/editar/', views.professor_edit_course, name='professor_edit_course'),
-    path('profesor/curso/<int:curso_id>/eliminar/', views.professor_delete_course, name='professor_delete_course'),
+    #path('profesor/curso/crear/', views.professor_create_course, name='professor_create_course'),
+    #path('profesor/curso/<int:curso_id>/editar/', views.professor_edit_course, name='professor_edit_course'),
+    #path('profesor/curso/<int:curso_id>/eliminar/', views.professor_delete_course, name='professor_delete_course'),
     path('profesor/curso/<int:curso_id>/gestionar/', views.professor_manage_course, name='professor_manage_course'),
 
     # CRUD de Exámenes
@@ -84,9 +84,9 @@ urlpatterns = [
 
     # --- CRUD SALONES  ---
     path('profesor/salones/', views.professor_manage_salons, name='professor_manage_salons'),
-    path('profesor/salon/crear/', views.professor_create_salon, name='professor_create_salon'),
-    path('profesor/salon/<int:salon_id>/editar/', views.professor_edit_salon, name='professor_edit_salon'),
-    path('profesor/salon/<int:salon_id>/eliminar/', views.professor_delete_salon, name='professor_delete_salon'),
+    #path('profesor/salon/crear/', views.professor_create_salon, name='professor_create_salon'),
+    #path('profesor/salon/<int:salon_id>/editar/', views.professor_edit_salon, name='professor_edit_salon'),
+    #path('profesor/salon/<int:salon_id>/eliminar/', views.professor_delete_salon, name='professor_delete_salon'),
 
     # --- SALONES - AGREGAR USUARUIO ---
     #path('profesor/salon/<intsalon_id>/alumnos/', views.professor_manage_salon_students, name='professor_manage_salon_students'),
